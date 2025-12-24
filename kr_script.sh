@@ -6,39 +6,34 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Функция для проверки прав доступа
-check_dangerous_permissions() {
+#Функция для проверки прав доступа
+check_perms() {
     local permissions="$1"
-    
-    # Файлы с правами записи для всех (world-writable)
-    # Правильная проверка: последняя цифра должна содержать бит записи (2,3,6,7)
-    # Но мы хотим именно world-writable, а не world-executable
-    # Разбиваем на цифры для точной проверки
-    local last_digit=$((permissions % 10))
-    
-    # World-writable: последняя цифра 2,3,6,7 (бит записи установлен)
-    if [[ $last_digit =~ [2367] ]]; then
-        echo "world-writable"
-        return 0
-    fi
-    
-    # Файлы с SUID битом
-    # Первая цифра 4,5,6,7 (бит SUID установлен)
-    local first_digit=${permissions:0:1}
-    if [[ $first_digit =~ [4567] ]]; then
-        echo "suid"
-        return 0
-    fi
-    
-    # Файлы с SGID битом
-    # Вторая цифра 2,3,6,7 (бит SGID установлен)
-    local second_digit=${permissions:1:1}
-    if [[ $second_digit =~ [2367] ]]; then
-        echo "sgid"
-        return 0
-    fi
-    
-    echo "safe"
+
+    # Нормализуем до 4 цифр: 644 -> 0644
+    [[ $permissions =~ ^[0-7]{3}$ ]] && permissions="0$permissions"
+
+    # Валидация
+    [[ $permissions =~ ^[0-7]{4}$ ]] || return 1
+
+    local special="${permissions:0:1}"   # suid/sgid/sticky
+    local other="${permissions:3:1}"     # права "others"
+
+    # world-writable: other has write bit (2)
+    case "$other" in
+        2|3|6|7) echo "world-writable"; return 0 ;;
+    esac
+
+    # SUID: special has bit 4
+    case "$special" in
+        4|5|6|7) echo "suid"; return 0 ;;
+    esac
+
+    # SGID: special has bit 2
+    case "$special" in
+        2|3|6|7) echo "sgid"; return 0 ;;
+    esac
+
     return 1
 }
 
