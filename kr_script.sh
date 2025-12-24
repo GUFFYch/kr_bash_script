@@ -11,19 +11,29 @@ check_dangerous_permissions() {
     local permissions="$1"
     
     # Файлы с правами записи для всех (world-writable)
-    if [[ $permissions =~ ^..[2-7] ]]; then
+    # Правильная проверка: последняя цифра должна содержать бит записи (2,3,6,7)
+    # Но мы хотим именно world-writable, а не world-executable
+    # Разбиваем на цифры для точной проверки
+    local last_digit=$((permissions % 10))
+    
+    # World-writable: последняя цифра 2,3,6,7 (бит записи установлен)
+    if [[ $last_digit =~ [2367] ]]; then
         echo "world-writable"
         return 0
     fi
     
     # Файлы с SUID битом
-    if [[ $permissions =~ ^[4-7] ]]; then
+    # Первая цифра 4,5,6,7 (бит SUID установлен)
+    local first_digit=${permissions:0:1}
+    if [[ $first_digit =~ [4567] ]]; then
         echo "suid"
         return 0
     fi
     
     # Файлы с SGID битом
-    if [[ $permissions =~ ^.[2-7] ]]; then
+    # Вторая цифра 2,3,6,7 (бит SGID установлен)
+    local second_digit=${permissions:1:1}
+    if [[ $second_digit =~ [2367] ]]; then
         echo "sgid"
         return 0
     fi
@@ -68,15 +78,15 @@ scan_directory() {
                 
                 case $result in
                     "world-writable")
-                        echo -e "${RED}⚠  WORLD-WRITABLE:${NC} $file (права: $perms)"
+                        echo -e "${RED}  WORLD-WRITABLE:${NC} $file (права: $perms)"
                         log_to_journal "WORLD-WRITABLE: $file (права: $perms)"
                         ;;
                     "suid")
-                        echo -e "${RED}  SUID:${NC} $file (права: $perms)"
+                        echo -e "${YELLOW}  SUID:${NC} $file (права: $perms)"
                         log_to_journal "SUID: $file (права: $perms)"
                         ;;
                     "sgid")
-                        echo -e "${RED}  SGID:${NC} $file (права: $perms)"
+                        echo -e "${YELLOW}  SGID:${NC} $file (права: $perms)"
                         log_to_journal "SGID: $file (права: $perms)"
                         ;;
                 esac
@@ -94,7 +104,7 @@ scan_directory() {
     fi
 }
 
-# Функция просмотра журнала - только последние 2 минуты
+# Функция просмотра журнала
 show_journal() {
     echo "Записи из журнала за последние 2 минуты:"
     echo "========================================"
@@ -106,7 +116,7 @@ while true; do
     echo ""
     echo "Меню:"
     echo "1. Сканировать директорию"
-    echo "2. Показать журнал (последние 2 минуты)"
+    echo "2. Показать журнал"
     echo "3. Выход"
     echo -n "Выберите действие (1-3): "
     read choice
