@@ -7,7 +7,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 #Функция для проверки прав доступа
-check_perms() {
+check_dangerous_permissions() {
     local permissions="$1"
 
     # Нормализуем до 4 цифр: 644 -> 0644
